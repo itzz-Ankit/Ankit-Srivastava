@@ -2,7 +2,7 @@
 
 A secure backend application built with Java and Spring Boot for managing personal journal entries through REST APIs. The application combines authentication, authorization, journal lifecycle operations, sentiment classification, weather integration, Redis caching, email support, scheduled processing, validation, centralized exception handling, API documentation, automated testing, and Docker-based local infrastructure.
 
-The project was developed over **60+ days** with a focus on progressively improving backend architecture, security, maintainability, persistence, performance, integration, testing, and deployment readiness.
+The project was developed with a focus on progressively improving backend architecture, security, maintainability, persistence, performance, integration, testing, and deployment readiness.
 
 ---
 
