@@ -1,8 +1,8 @@
-# Journal Management & Sentiment Analysis Platform
+# Personal Insights & Journal Platform
 
 A backend application built with Java and Spring Boot for managing personal journal entries through a secure REST API. The application provides authentication, journal CRUD operations, sentiment classification, weather enrichment, caching, validation, scheduled processing, email support, and API documentation.
 
-The project was developed as a **60+ day backend engineering project**, with a focus on clean service-layer design, authentication, persistence, caching, external API integration, testing, and Docker-based local infrastructure.
+The project was developed  with a focus on clean service-layer design, authentication, persistence, caching, external API integration, testing, and Docker-based local infrastructure.
 
 ---
 
