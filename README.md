@@ -28,54 +28,83 @@ An administrator endpoint is also provided for retrieving registered users.
 
 ## Architecture
 
-```text
-                         CLIENT
-                           |
-                           | HTTP / REST
-                           v
-                +-----------------------+
-                |   Spring Boot API     |
-                +-----------+-----------+
-                            |
-              +-------------+-------------+
-              |             |             |
-              v             v             v
-        AuthController  JournalController  AdminController
-              |             |             |
-              v             v             v
-        AuthService    JournalService    UserService
-              |             |             |
-              |       +-----+------+      |
-              |       |            |      |
-              v       v            v      v
-          Spring   MongoDB     Redis   Repository Layer
-          Security     |           |
-              |        |           |
-              v        |           |
-             JWT       |           |
-                       |           |
-                       v           v
-                Journal Data   Cached Data
-                       |
-             +---------+---------+
-             |                   |
-             v                   v
-      SentimentService     WeatherService
-             |                   |
-             v                   v
-       Sentiment Result    External Weather API
-             |
-             v
-       Journal Response
+```text                         ┌─────────────────────────┐
+                         │        Client           │
+                         │ Postman / Frontend      │
+                         └────────────┬────────────┘
+                                      │
+                                      │ HTTP / REST
+                                      ▼
+                         ┌─────────────────────────┐
+                         │      Controllers        │
+                         │                         │
+                         │ AuthController          │
+                         │ JournalController       │
+                         │ UserController          │
+                         │ AdminController         │
+                         └────────────┬────────────┘
+                                      │
+                                      ▼
+                         ┌─────────────────────────┐
+                         │       Services          │
+                         │                         │
+                         │ AuthService             │
+                         │ JournalEntryService     │
+                         │ SentimentService        │
+                         │ RedisService            │
+                         │ EmailService            │
+                         └────────────┬────────────┘
+                                      │
+                         ┌────────────┴────────────┐
+                         │                         │
+                         ▼                         ▼
+              ┌─────────────────────┐   ┌─────────────────────┐
+              │     Repositories     │   │      Mappers        │
+              │                     │   │                     │
+              │ UserRepository      │   │ UserMapper          │
+              │ JournalRepository   │   │ JournalMapper       │
+              │ ConfigRepository     │   │                     │
+              └──────────┬──────────┘   └─────────────────────┘
+                         │
+                         ▼
+              ┌─────────────────────┐
+              │     PostgreSQL      │
+              │                     │
+              │ Users               │
+              │ Journal Entries     │
+              │ Configuration       │
+              └─────────────────────┘
 
-             Supporting Components
-             ---------------------
-             Validation
-             Global Exception Handling
-             Scheduled Jobs
-             Email Service
-             OpenAPI / Swagger
-             Docker Compose
+
+       Security Layer
+       ──────────────
+
+       Request
+          │
+          ▼
+   JWT Authentication Filter
+          │
+          ▼
+   JWT Validation
+          │
+          ▼
+   Spring Security Context
+          │
+          ▼
+   Protected Controller
+
+
+       Caching Layer
+       ─────────────
+
+       Service
+          │
+          ▼
+        Redis
+          │
+          ├── Cache Hit ──────► Return cached data
+          │
+          └── Cache Miss ─────► Database
 ```
 
 ### Request Flow
