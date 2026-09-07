@@ -1,139 +1,175 @@
 # Personal Insights & Journal Platform
 
-A backend application built with Java and Spring Boot for managing personal journal entries through a secure REST API. The application provides authentication, journal CRUD operations, sentiment classification, weather enrichment, caching, validation, scheduled processing, email support, and API documentation.
+A secure backend application built with Java and Spring Boot for managing personal journal entries through REST APIs. The application combines authentication, authorization, journal lifecycle operations, sentiment classification, weather integration, Redis caching, email support, scheduled processing, validation, centralized exception handling, API documentation, automated testing, and Docker-based local infrastructure.
 
-The project was developed  with a focus on clean service-layer design, authentication, persistence, caching, external API integration, testing, and Docker-based local infrastructure.
+The project was developed over **60+ days** with a focus on progressively improving backend architecture, security, maintainability, persistence, performance, integration, testing, and deployment readiness.
 
 ---
 
 ## Overview
 
-The platform allows authenticated users to:
+The platform provides authenticated users with a private space to manage journal entries while applying supporting backend capabilities around those entries.
 
-- Create, read, update, and delete journal entries
-- Associate journal entries with sentiment analysis
-- Retrieve weather information associated with journal activity
-- Authenticate securely using JWT
-- Store passwords using password hashing rather than plain text
-- Cache frequently requested data with Redis
-- Receive application emails through Spring Mail
-- Validate incoming API requests
-- Handle application errors through centralized exception handling
-- Expose API documentation through OpenAPI / Swagger
-- Run required infrastructure through Docker Compose
+Core capabilities include:
 
-An administrator endpoint is also provided for retrieving registered users.
+- User registration and secure login
+- JWT-based authentication with Spring Security
+- Role-based access control
+- Password hashing before persistence
+- Journal create, read, update, and delete operations
+- User-specific journal access
+- Rule-based sentiment classification (`POSITIVE`, `NEGATIVE`, `NEUTRAL`)
+- Weather information integration through an external API
+- Redis caching to reduce repeated data/API access
+- Email service integration
+- Scheduled background processing
+- DTO-based API contracts
+- Entity-to-DTO and DTO-to-Entity mapping
+- Request validation
+- Centralized exception handling
+- Swagger / OpenAPI documentation
+- Automated testing with JUnit and Mockito
+- Docker and Docker Compose support
 
 ---
 
 ## Architecture
 
-```text                         ┌─────────────────────────┐
-                         │        Client           │
-                         │ Postman / Frontend      │
-                         └────────────┬────────────┘
-                                      │
-                                      │ HTTP / REST
-                                      ▼
-                         ┌─────────────────────────┐
-                         │      Controllers        │
-                         │                         │
-                         │ AuthController          │
-                         │ JournalController       │
-                         │ UserController          │
-                         │ AdminController         │
-                         └────────────┬────────────┘
-                                      │
-                                      ▼
-                         ┌─────────────────────────┐
-                         │       Services          │
-                         │                         │
-                         │ AuthService             │
-                         │ JournalEntryService     │
-                         │ SentimentService        │
-                         │ RedisService            │
-                         │ EmailService            │
-                         └────────────┬────────────┘
-                                      │
-                         ┌────────────┴────────────┐
-                         │                         │
-                         ▼                         ▼
-              ┌─────────────────────┐   ┌─────────────────────┐
-              │     Repositories     │   │      Mappers        │
-              │                     │   │                     │
-              │ UserRepository      │   │ UserMapper          │
-              │ JournalRepository   │   │ JournalMapper       │
-              │ ConfigRepository     │   │                     │
-              └──────────┬──────────┘   └─────────────────────┘
-                         │
-                         ▼
-              ┌─────────────────────┐
-              │     PostgreSQL      │
-              │                     │
-              │ Users               │
-              │ Journal Entries     │
-              │ Configuration       │
-              └─────────────────────┘
+```text
+                              CLIENT
+                       Postman / API Consumer
+                                |
+                                | HTTP / REST
+                                v
+                    +--------------------------+
+                    |     Spring Boot API      |
+                    +------------+-------------+
+                                 |
+                   +-------------+-------------+
+                   |             |               |
+                   v             v               v
+             AuthController  JournalController  Admin/User APIs
+                   |             |               |
+                   +-------------+---------------+
+                                 |
+                                 v
+                    +--------------------------+
+                    |       Service Layer      |
+                    +--------------------------+
+                    | AuthService              |
+                    | JournalEntryService     |
+                    | UserService             |
+                    | SentimentService        |
+                    | WeatherService          |
+                    | RedisService            |
+                    | EmailService            |
+                    +-------------+------------+
+                                  |
+                  +---------------+----------------+
+                  |               |                |
+                  v               v                v
+             Repository        Redis       External Weather API
+                  |
+                  v
+               MongoDB
+                  |
+                  v
+             Response Entity
+                  |
+                  v
+                Mapper
+                  |
+                  v
+             Response DTO
+                  |
+                  v
+                CLIENT
 
 
-       Security Layer
-       ──────────────
+Security Flow
+-------------
 
-       Request
-          │
-          ▼
-   JWT Authentication Filter
-          │
-          ▼
-   JWT Validation
-          │
-          ▼
-   Spring Security Context
-          │
-          ▼
-   Protected Controller
+HTTP Request
+     |
+     v
+JWT Authentication Filter
+     |
+     v
+JWT Validation
+     |
+     v
+Spring Security Context
+     |
+     v
+Protected Controller
 
 
-       Caching Layer
-       ─────────────
+Error Flow
+----------
 
-       Service
-          │
-          ▼
-        Redis
-          │
-          ├── Cache Hit ──────► Return cached data
-          │
-          └── Cache Miss ─────► Database
+Controller / Service
+        |
+        v
+     Exception
+        |
+        v
+GlobalExceptionHandler
+        |
+        v
+Standard API Error Response
+
+
+Cache Flow
+----------
+
+Service
+  |
+  v
+Redis Cache
+  |
+  +---- Cache Hit  ----> Return cached data
+  |
+  +---- Cache Miss ----> Repository / External API
+                              |
+                              v
+                           Store in Redis
 ```
 
-### Request Flow
+---
+
+## Request Lifecycle
 
 ```text
-HTTP Request
+Client Request
+     |
+     v
+Validation
+     |
+     v
+Spring Security / JWT
      |
      v
 Controller
      |
      v
-Validation / Security
-     |
-     v
 Service Layer
      |
-     +-------------------+
-     |                   |
-     v                   v
-Repository          External Service
-     |                   |
-     v                   v
- MongoDB              Weather API
+     +-------------------+--------------------+
+     |                   |                    |
+     v                   v                    v
+Repository          Redis Cache         External Service
+     |                   |                    |
+     v                   |                    v
+ MongoDB <---------------+              Weather API
      |
      v
- Redis Cache (where applicable)
+Entity
      |
      v
-DTO Response
+Mapper
+     |
+     v
+Response DTO
      |
      v
 HTTP Response
@@ -143,73 +179,90 @@ HTTP Response
 
 ## Tech Stack
 
-| Layer | Technology |
+| Category | Technology |
 |---|---|
-| Language | Java 8 |
-| Framework | Spring Boot 2.7.18 |
-| Web | Spring MVC / REST APIs |
-| Database | MongoDB |
-| Persistence | Spring Data MongoDB |
+| Language | Java |
+| Framework | Spring Boot |
+| API | Spring MVC / REST |
 | Security | Spring Security |
-| Authentication | JWT (JJWT 0.12.6) |
+| Authentication | JWT / JJWT 0.12.6 |
 | Password Security | PasswordEncoder |
-| Validation | Jakarta/Javax Bean Validation through Spring Boot Validation |
+| Database | MongoDB |
+| Data Access | Spring Data MongoDB |
 | Cache | Redis |
+| Validation | Spring Boot Validation |
 | Email | Spring Boot Starter Mail |
 | API Documentation | Springdoc OpenAPI / Swagger UI |
 | Build Tool | Maven |
 | Boilerplate Reduction | Lombok |
+| Testing | JUnit / Mockito / Spring Boot Test |
 | Containerization | Docker |
-| Local Infrastructure | Docker Compose |
-| Testing | Spring Boot Test + Spring Security Test + Mockito/JUnit ecosystem |
+| Local Orchestration | Docker Compose |
+| External Integration | Weather API |
 
 ---
 
 ## Core Modules
 
-### 1. Authentication
+### 1. Identity & Authentication
 
-The authentication module provides:
-
-- User signup
-- User login
-- JWT-based authentication
-- Password hashing
-- Authentication filters
-- Protected API access
-- Role information for users
-
-Main endpoints:
+The authentication module handles account creation and login while integrating with Spring Security.
 
 ```text
-POST /auth/signup
-POST /auth/login
-GET  /auth/health
+Signup
+  |
+  +--> Validate input
+  |
+  +--> Check username/email uniqueness
+  |
+  +--> Hash password
+  |
+  +--> Assign default role
+  |
+  +--> Persist user
+  |
+  +--> Return UserResponse
 ```
 
-### 2. Journal Management
-
-Authenticated users can manage their own journal entries.
+Login:
 
 ```text
-GET    /journal
+Username + Password
+        |
+        v
+AuthenticationManager
+        |
+        v
+Credential Verification
+        |
+        v
+JWT Generation
+        |
+        v
+AuthResponse
+```
+
+### 2. Authorization
+
+Protected APIs are accessed using a valid JWT. Role information is used to control administrative access.
+
+### 3. Journal Lifecycle Management
+
+Authenticated users can create, retrieve, update, and delete their journal entries.
+
+```text
 POST   /journal
+GET    /journal
 GET    /journal/{id}
 PUT    /journal/{id}
 DELETE /journal/{id}
 ```
 
-Each journal entry can contain:
+Journal operations are processed through the service layer before persistence.
 
-- Title
-- Content
-- Sentiment
-- Weather information
-- MongoDB ObjectId
+### 4. Sentiment Classification
 
-### 3. Sentiment Analysis
-
-Journal content can be classified into three application-level sentiment categories:
+`SentimentService` classifies journal text into application-defined categories:
 
 ```text
 POSITIVE
@@ -217,61 +270,75 @@ NEGATIVE
 NEUTRAL
 ```
 
-The sentiment logic is isolated inside `SentimentService`, keeping the controller and persistence layers independent of the classification logic.
+This is a rule-based application service; the project does not use an ML/LLM model for sentiment analysis.
 
-### 4. Weather Integration
+### 5. Weather Integration
 
-The application integrates weather information through `WeatherService`.
+`WeatherService` communicates with an external weather API and returns a dedicated response model. Redis is used to cache weather data to reduce repeated external calls.
 
-Frequently requested weather data is cached using Redis to reduce repeated external API calls.
+### 6. Redis Cache Layer
+
+Redis provides fast access to cached values and reduces unnecessary database or external API requests.
+
+### 7. Notification / Email Service
+
+The application integrates Spring Mail for backend email operations.
+
+### 8. Scheduled Background Processing
+
+Scheduled components execute periodic background operations without requiring an incoming API request.
+
+### 9. API Data Contracts
+
+Request and response DTOs keep API contracts separate from persistent entities.
 
 ```text
-Request
+Client
   |
   v
-Redis Cache
+Request DTO
   |
-  +---- cache hit ----> Return cached weather
+  v
+Service
   |
-  +---- cache miss ---> External Weather API
-                              |
-                              v
-                         Store in Redis
-                              |
-                              v
-                         Return result
+  v
+Entity
+  |
+  v
+Repository
+  |
+  v
+Entity
+  |
+  v
+Mapper
+  |
+  v
+Response DTO
 ```
 
-### 5. Caching
+### 10. Centralized Error Handling
 
-Redis is used for caching data that can be expensive or unnecessary to retrieve repeatedly, particularly weather-related data.
-
-This reduces repeated external API requests and improves response efficiency.
-
-### 6. Scheduled Processing
-
-The project contains scheduled application logic for periodic processing of user/journal-related operations.
-
-### 7. Email Service
-
-Spring Mail is integrated for application-level email operations.
-
-### 8. Centralized Exception Handling
-
-A global exception handler provides a consistent API-level response for validation failures, bad requests, and unexpected server errors.
+`GlobalExceptionHandler` centralizes API error handling and provides consistent HTTP responses for validation failures, bad requests, and unexpected errors.
 
 ---
 
 ## API Reference
 
-### Authentication
+### Health Check
 
-#### Signup
+```http
+GET /auth/health
+```
+
+### Signup
 
 ```http
 POST /auth/signup
 Content-Type: application/json
 ```
+
+Request:
 
 ```json
 {
@@ -281,12 +348,14 @@ Content-Type: application/json
 }
 ```
 
-#### Login
+### Login
 
 ```http
 POST /auth/login
 Content-Type: application/json
 ```
+
+Request:
 
 ```json
 {
@@ -295,17 +364,29 @@ Content-Type: application/json
 }
 ```
 
-The login response contains the authentication token used for protected requests.
+Response:
 
-### Journal
+```json
+{
+  "token": "<JWT_TOKEN>",
+  "username": "ankit",
+  "role": "USER"
+}
+```
 
-#### Create Entry
+### Authenticated Journal Request
+
+```http
+Authorization: Bearer <JWT_TOKEN>
+```
+
+Create:
 
 ```http
 POST /journal
-Authorization: Bearer <JWT_TOKEN>
-Content-Type: application/json
 ```
+
+Request:
 
 ```json
 {
@@ -314,47 +395,47 @@ Content-Type: application/json
 }
 ```
 
-#### Get My Entries
+Read all for authenticated user:
 
 ```http
 GET /journal
-Authorization: Bearer <JWT_TOKEN>
 ```
 
-#### Get Entry By ID
+Read by id:
 
 ```http
 GET /journal/{id}
-Authorization: Bearer <JWT_TOKEN>
 ```
 
-#### Update Entry
+Update:
 
 ```http
 PUT /journal/{id}
-Authorization: Bearer <JWT_TOKEN>
-Content-Type: application/json
 ```
 
-#### Delete Entry
+Delete:
 
 ```http
 DELETE /journal/{id}
-Authorization: Bearer <JWT_TOKEN>
 ```
 
-### Administration
+### Admin
 
 ```http
 GET /admin/all-users
-Authorization: Bearer <JWT_TOKEN>
 ```
+
+Administrative endpoints require the application's configured authorization rules.
+
+> Endpoint names should always be kept in sync with the current controller mappings.
 
 ---
 
-## Response Format
+## Uniform API Response
 
-The REST API uses a common response wrapper for API responses.
+The application uses a common response wrapper for structured REST responses.
+
+Example:
 
 ```json
 {
@@ -364,56 +445,44 @@ The REST API uses a common response wrapper for API responses.
 }
 ```
 
-This keeps successful and error responses consistent across controllers.
+This provides a consistent response contract across API modules.
 
 ---
 
 ## Security Model
 
 ```text
-Client
-  |
-  | Username + Password
-  v
-Authentication Endpoint
-  |
-  v
-AuthenticationManager
-  |
-  v
-UserDetailsService
-  |
-  v
-PasswordEncoder
-  |
-  v
-JWT Generation
-  |
-  v
-Client receives JWT
-  |
-  | Authorization: Bearer <token>
-  v
-JWT Authentication Filter
-  |
-  v
-Spring Security Context
-  |
-  v
-Protected Controller
+                       AUTHENTICATION
+                              |
+                 +------------+------------+
+                 |                         |
+               Signup                    Login
+                 |                         |
+                 v                         v
+          PasswordEncoder          AuthenticationManager
+                 |                         |
+                 v                         v
+            Store User              Verify Credentials
+                                           |
+                                           v
+                                      Generate JWT
+                                           |
+                                           v
+                                         Client
+                                           |
+                               Authorization: Bearer <JWT>
+                                           |
+                                           v
+                                JWT Authentication Filter
+                                           |
+                                           v
+                                  Spring Security Context
+                                           |
+                                           v
+                                   Protected Controller
 ```
 
-Security responsibilities include:
-
-- Authentication through Spring Security
-- JWT token generation and validation
-- Password hashing
-- Protected endpoints
-- Role-based user information
-- Request validation
-- Centralized exception handling
-
-Passwords are not returned as part of user-facing response DTOs.
+Passwords are hashed before persistence and are not returned through response DTOs.
 
 ---
 
@@ -423,51 +492,84 @@ Passwords are not returned as part of user-facing response DTOs.
 src/
 ├── main/
 │   ├── java/
+│   │   ├── api/
+│   │   │   └── response/
+│   │   │       └── WeatherResponse.java
+│   │   │
+│   │   ├── cache/
+│   │   │   └── AppCache.java
+│   │   │
+│   │   ├── config/
+│   │   │   ├── RedisConfig.java
+│   │   │   └── SwaggerConfig.java
+│   │   │
 │   │   ├── controller/
+│   │   │   ├── AdminController.java
 │   │   │   ├── AuthController.java
 │   │   │   ├── JournalController.java
-│   │   │   ├── UserController.java
-│   │   │   ├── AdminController.java
-│   │   │   └── PublicController.java
-│   │   │
-│   │   ├── services/
-│   │   │   ├── AuthService.java
-│   │   │   ├── JournalService.java
-│   │   │   ├── UserService.java
-│   │   │   ├── SentimentService.java
-│   │   │   ├── WeatherService.java
-│   │   │   └── EmailService.java
-│   │   │
-│   │   ├── repository/
-│   │   │   ├── UserRepository.java
-│   │   │   ├── JournalEntryRepository.java
-│   │   │   └── UserRepositoryImpl.java
-│   │   │
-│   │   ├── entity/
-│   │   │   ├── User.java
-│   │   │   └── JournalEntry.java
+│   │   │   ├── PublicController.java
+│   │   │   └── UserController.java
 │   │   │
 │   │   ├── dto_request/
+│   │   │   ├── LoginRequest.java
+│   │   │   ├── SignupRequest.java
+│   │   │   ├── JournalEntryRequest.java
+│   │   │   └── JournalUpdateRequest.java
+│   │   │
 │   │   ├── dto_response/
-│   │   ├── Mapper/
-│   │   ├── Filter/
-│   │   ├── Exception/
+│   │   │   ├── ApiResponse.java
+│   │   │   ├── AuthResponse.java
+│   │   │   ├── JournalEntryResponse.java
+│   │   │   └── UserResponse.java
+│   │   │
+│   │   ├── entity/
+│   │   │   ├── ConfigJournalAppEntity.java
+│   │   │   ├── JournalEntry.java
+│   │   │   └── User.java
+│   │   │
 │   │   ├── enums/
-│   │   ├── config/
-│   │   ├── cache/
+│   │   │   └── Sentiment.java
+│   │   │
+│   │   ├── Exception/
+│   │   │   └── GlobalExceptionHandler.java
+│   │   │
+│   │   ├── Filter/
+│   │   │   └── JwtFilter.java
+│   │   │
+│   │   ├── Mapper/
+│   │   │   ├── UserMapper.java
+│   │   │   └── journalMapper.java
+│   │   │
+│   │   ├── repository/
+│   │   │   ├── ConfigJournalAppRepository.java
+│   │   │   ├── JournalEntryRepository.java
+│   │   │   ├── UserRepository.java
+│   │   │   └── UserRepositoryImpl.java
+│   │   │
 │   │   ├── Scheduler/
-│   │   └── api/
+│   │   │   └── UserScheduler.java
+│   │   │
+│   │   └── services/
+│   │       ├── AuthService.java
+│   │       ├── EmailService.java
+│   │       ├── JournalService.java
+│   │       ├── RedisService.java
+│   │       ├── SentimentService.java
+│   │       ├── UserDetailsServiceImpl.java
+│   │       ├── UserService.java
+│   │       └── WeatherService.java
 │   │
 │   └── resources/
-│       └── application.properties / application.yml
+│       └── application configuration
 │
 ├── test/
 │   └── java/
-│       └── services/
+│       └── application tests
 │
 ├── Dockerfile
 ├── docker-compose.yml
 ├── .dockerignore
+├── .gitignore
 ├── pom.xml
 └── README.md
 ```
@@ -478,41 +580,67 @@ src/
 
 ### User
 
-The user model stores account information, roles, journal relationships, and sentiment-analysis configuration.
-
-Conceptually:
-
 ```text
 User
- ├── id
- ├── username
- ├── email
- ├── password (hashed)
- ├── roles
- ├── journalEntries
- └── sentimentAnalysis
+├── id
+├── username
+├── email
+├── password (hashed)
+├── roles
+├── journalEntries
+└── sentimentAnalysis
 ```
 
 ### Journal Entry
 
 ```text
 JournalEntry
- ├── id
- ├── title
- ├── content
- ├── sentiment
- └── weather
+├── id
+├── title
+├── content
+├── sentiment
+└── weather
 ```
 
-MongoDB is used as the primary persistence layer.
+MongoDB is the persistent data store for application entities.
+
+---
+
+## Redis Caching
+
+```text
+Service Request
+      |
+      v
+   Redis
+      |
+   +--+----------------+
+   |                   |
+ Cache Hit          Cache Miss
+   |                   |
+   v                   v
+Return Value      Repository / API
+                       |
+                       v
+                  Store in Redis
+                       |
+                       v
+                    Response
+```
+
+The weather service uses a cache key based on the requested city so repeated weather lookups can be served from Redis when available.
 
 ---
 
 ## Docker
 
-The repository includes Docker configuration for the application and its local infrastructure.
+The project includes:
 
-### Services
+- `Dockerfile` for the Spring Boot application
+- `docker-compose.yml` for local application infrastructure
+- `.dockerignore` to reduce unnecessary Docker build context
+
+### Docker Compose Services
 
 ```text
 Docker Compose
@@ -528,17 +656,27 @@ Docker Compose
         Spring Boot App
 ```
 
-### Start Infrastructure
+Start:
 
 ```bash
 docker compose up --build
 ```
 
-The application is exposed through the configured Docker port mapping.
+Stop:
 
-### Environment Variables
+```bash
+docker compose down
+```
 
-Configure environment-specific values rather than committing secrets to source control.
+The current Compose configuration uses MongoDB and Redis containers and exposes the application through its configured port mapping.
+
+---
+
+## Configuration
+
+Environment-specific values should be supplied through environment variables or local configuration rather than committed secrets.
+
+Typical values include:
 
 ```text
 MONGODB_URI
@@ -548,17 +686,19 @@ WEATHER_API_KEY
 PORT
 ```
 
+Do not commit passwords, API keys, JWT secrets, or mail credentials to GitHub.
+
 ---
 
 ## Local Development
 
 ### Prerequisites
 
-- Java 8+
+- Java
 - Maven
 - MongoDB
 - Redis
-- Docker Desktop (recommended for local infrastructure)
+- Docker Desktop (recommended)
 
 ### Build
 
@@ -566,7 +706,7 @@ PORT
 ./mvnw clean package
 ```
 
-On Windows:
+Windows:
 
 ```bat
 mvnw.cmd clean package
@@ -578,7 +718,7 @@ mvnw.cmd clean package
 ./mvnw spring-boot:run
 ```
 
-On Windows:
+Windows:
 
 ```bat
 mvnw.cmd spring-boot:run
@@ -588,103 +728,154 @@ mvnw.cmd spring-boot:run
 
 ## API Documentation
 
-When the application is running, Swagger UI is available at:
+Swagger UI:
 
 ```text
 http://localhost:8080/swagger-ui/index.html
 ```
 
-OpenAPI documentation provides an interactive way to inspect and test the REST endpoints.
+The OpenAPI definition provides an interactive view of the available REST endpoints.
 
 ---
 
 ## Testing
 
-The project includes automated tests covering application services and security-related behaviour.
+The project uses JUnit, Mockito, Spring Boot Test, and Spring Security Test dependencies for automated testing.
 
-Run the test suite with:
+Run:
 
 ```bash
 ./mvnw test
 ```
 
-On Windows:
+Windows:
 
 ```bat
 mvnw.cmd test
 ```
 
-Testing areas include service-layer behaviour, sentiment processing, journal operations, and email-related functionality.
+The test suite covers application behaviour such as services, sentiment processing, journal functionality, email-related operations, and security support present in the repository.
 
 ---
 
 ## Engineering Practices
 
-The project follows a layered backend structure:
+The project follows a layered architecture and keeps responsibilities separated:
 
 ```text
 Controller
-    ↓
+    |
+    v
 Service
-    ↓
-Repository
-    ↓
-MongoDB
+    |
+    +----> Repository ----> MongoDB
+    |
+    +----> Redis
+    |
+    +----> External API
 ```
 
-Additional cross-cutting concerns are separated into dedicated components:
+Supporting concerns are handled separately:
 
-- DTOs for API boundaries
-- Mappers for entity/DTO conversion
-- Security filters for JWT processing
-- Global exception handling
-- Configuration classes for infrastructure concerns
-- Services for external API integration
-- Redis for caching
-- Scheduled components for background processing
-
-This separation keeps business logic out of controllers and makes individual components easier to test and maintain.
+- DTOs define API contracts
+- Mappers isolate Entity ↔ DTO conversion
+- Security filters process JWT authentication
+- Global exception handling standardizes error responses
+- Validation prevents malformed requests from reaching business logic
+- Configuration classes centralize infrastructure setup
+- Scheduled components handle background work
 
 ---
 
 ## Development Timeline
 
-**60+ days of development** focused on progressively building and refining the backend:
+The project was developed over **60+ days**, progressing through multiple backend engineering stages:
 
 ```text
 Foundation
-   ↓
-REST APIs
-   ↓
+    ↓
+REST API Development
+    ↓
 MongoDB Persistence
-   ↓
-Authentication & JWT
-   ↓
-DTO / Mapper Layer
-   ↓
+    ↓
+Authentication & Authorization
+    ↓
+JWT Security
+    ↓
+DTO & Mapper Architecture
+    ↓
 Validation & Exception Handling
-   ↓
-Sentiment Analysis
-   ↓
+    ↓
+Journal Lifecycle
+    ↓
+Sentiment Classification
+    ↓
 Weather API Integration
-   ↓
+    ↓
 Redis Caching
-   ↓
+    ↓
 Email & Scheduled Processing
-   ↓
-Testing & API Documentation
-   ↓
-Dockerized Local Environment
+    ↓
+Swagger Documentation
+    ↓
+JUnit / Mockito Testing
+    ↓
+Dockerization
+    ↓
+Refactoring & Integration
 ```
+
+The development process focused on making the backend more structured, secure, maintainable, testable, and deployment-ready rather than implementing only basic CRUD functionality.
+
+---
+
+## Key Design Decisions
+
+### DTOs Instead of Exposing Entities
+
+API input and output models are separated from persistence entities to reduce coupling and avoid exposing internal fields.
+
+### Stateless JWT Authentication
+
+JWT allows protected API requests to be authenticated without maintaining traditional server-side sessions.
+
+### Redis for Frequently Accessed Data
+
+Caching reduces repeated access to the database and external weather service.
+
+### Service-Layer Business Logic
+
+Controllers remain focused on HTTP handling while application behaviour stays inside dedicated services.
+
+### Centralized Exception Handling
+
+A single global handler keeps API error responses consistent instead of duplicating exception logic in every controller.
 
 ---
 
 ## Current Scope
 
-The project is intentionally focused on backend engineering rather than a frontend UI. Its primary goal is to demonstrate the design and implementation of a secure, maintainable Spring Boot REST backend with persistence, authentication, caching, external-service integration, validation, testing, and containerized infrastructure.
+The project is focused on backend engineering and REST APIs. Its main objective is to demonstrate practical Java and Spring Boot development across authentication, authorization, persistence, caching, external API integration, validation, background processing, testing, documentation, and containerized local infrastructure.
 
 ---
 
-## License
+## Roadmap
 
-This project is currently maintained as a personal software engineering project.
+Future improvements can include:
+
+- Refresh-token based authentication
+- Pagination and advanced journal search
+- API versioning
+- Rate limiting
+- More comprehensive integration testing
+- CI/CD automation
+- Production observability and metrics
+- Cloud deployment
+
+---
+
+## Author
+
+**Ankit Srivastava**
+
+Java | Spring Boot | Backend Development
